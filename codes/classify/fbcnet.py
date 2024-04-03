@@ -30,7 +30,7 @@ config['batchSize'] = 30
 
 config['modelArguments'] = {'nChan': 14, 'nTime': 250, 'dropoutP': 0.5,
                                     'nBands':9, 'm' : 32, 'temporalLayer': 'LogVarLayer',
-                                    'nClass':3, 'doWeightNorm': True}
+                                    'nClass':2, 'doWeightNorm': True}
 # the config for bci
 # config['modelArguments'] = {'nChan': 22, 'nTime': 1000, 'dropoutP': 0.5,
 #                                     'nBands':9, 'm' : 32, 'temporalLayer': 'LogVarLayer',
@@ -39,7 +39,7 @@ config['modelArguments'] = {'nChan': 14, 'nTime': 250, 'dropoutP': 0.5,
 # Training related details    
 config['modelTrainArguments'] = {'stopCondi':  {'c': {'Or': {'c1': {'MaxEpoch': {'maxEpochs': 1500, 'varName' : 'epoch'}},
           'c2': {'NoDecrease': {'numEpochs' : 200, 'varName': 'valInacc'}} } }},
-          'classes': [0,1,2], 'sampler' : 'RandomSampler', 'loadBestModel': True,
+          'classes': [0,1], 'sampler' : 'RandomSampler', 'loadBestModel': True,
           'bestVarToCheck': 'valInacc', 'continueAfterEarlystop':True,'lr': 1e-3}
 
 
@@ -130,8 +130,8 @@ class FBCNet:
         - X_valid
         - y_valid
         """
-        X_list = [[], [], []]
-        y_list = [[], [], []]
+        X_list = [[], []]
+        y_list = [[], []]
 
         for i in range(len(X)):
             curX = X[i]
@@ -141,7 +141,7 @@ class FBCNet:
 
         # XXX: shuffle the list 
 
-        for i in range(3):
+        for i in range(2):
             shuffle_num = np.random.permutation(len(X_list[i]))
             X_list[i] = np.array(X_list[i])[shuffle_num]
             y_list[i] = np.array(y_list[i])[shuffle_num]
@@ -151,7 +151,7 @@ class FBCNet:
         y_train_list = []
         y_valid_list = []
         
-        for i in range(3):
+        for i in range(2):
             # print(len(X_list[i]), len(y_list[i]))
             n = len(X_list[i])
             split_idx = int(n * train_ratio)
@@ -351,6 +351,101 @@ class FBCNet:
             _, preds = torch.max(preds, 1)
 
         return preds.cpu().numpy()
+    
+    def OvR_score(self, data):
+        """
+        output the prediction score the input. similar to `self.inference()`. 
+
+        Attributes:
+        ----------
+        - data: numpy.ndarray
+            the unlabeled data for inference. should be formatted
+            as (1, n_chans, n_times). In particular, (1, 14, 250)
+
+        Return:
+        ------
+        - OvR_score: float
+            representing the logits of the output 
+        """
+        # tranform the input
+        data = self.transform(data) # should return a Tensor of (1, n_chans, n_times, 9) 
+        # print("now the data will be inferenced")
+        self.net.eval()
+        d = data.unsqueeze(1)
+        with torch.no_grad():
+            # print(d.shape)
+            preds = self.net(d.to(self.device))
+            # print(">>>", preds.shape)
+
+        return preds[:, 1].cpu().numpy()
+
+
+class OVR_FBCNet:
+    def __init__(self):
+        self.net0 = FBCNet()
+        self.net1 = FBCNet()
+        self.net2 = FBCNet()
+
+    def convert_data(self, data):
+        """
+        Convert the multi-class data into multiple bi-class data
+        
+        Attributes
+        ----------
+        - data: a tuple of two numpy.ndarrays: X and y
+            (n_trials, n_chans, n_times)
+        
+        Return
+        ------
+        - (data0, data1, data2)
+        """
+        X, y = data
+        y0 = []
+        y1 = []
+        y2 = []
+
+        for i in range(len(y)):
+            if y[i] == 0:
+                y0.append(1)
+                y1.append(0)
+                y2.append(0)
+            elif y[i] == 1:
+                y0.append(0)
+                y1.append(1)
+                y2.append(0)
+            else:
+                y0.append(0)
+                y1.append(0)
+                y2.append(1)
+
+        y0 = np.array(y0)
+        y1 = np.array(y1)
+        y2 = np.array(y2)
+
+        return ((X, y0), (X, y1), (X, y2))
+                 
+
+
+
+    def finetune(self, data, train_ratio=0.8, earlyStop=True):
+        data0, data1, data2 = self.convert_data(data)
+        self.net0.finetune(data0, train_ratio=1, earlyStop=False)
+        self.net1.finetune(data1, train_ratio=1, earlyStop=False)
+        self.net2.finetune(data2, train_ratio=1, earlyStop=False)
+
+    def inference(self, data):
+        score0 = self.net0.OvR_score(data)
+        score1 = self.net1.OvR_score(data)
+        score2 = self.net2.OvR_score(data)
+
+        score_list = []
+        for idx in range(len(score0)):
+            lst = [score0[idx], score1[idx], score2[idx]]
+            label = lst.index(max(lst)) 
+            score_list.append(label)
+
+        return np.array(score_list)
+
 
 
 

@@ -311,7 +311,8 @@ def get_data():
 
 
 if __name__ == "__main__":
-    fbcnet = fbcnet.FBCNet()
+    # fbcnet = fbcnet.FBCNet()
+    fbcnet = fbcnet.OVR_FBCNet()
 
 
     # _, train_data = load_lyh_data("v3", train_idx=0)

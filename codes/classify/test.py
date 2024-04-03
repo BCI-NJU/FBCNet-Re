@@ -135,10 +135,10 @@ def load_lyh_data(sessionId, train_idx=10):
 
         # train_data = {'x': X_train, 'y': y_train, 'c': [i for i in range(14)], 's': fs}
         # train_data = {'x': X_train_new, 'y': y_train_new, 'c': [i for i in range(14)], 's': fs}
-        # train_data = {'x': X_train_add, 'y': y_train_add, 'c': [i for i in range(14)], 's': fs}
+        train_data = {'x': X_train_add_5_1, 'y': y_train_add_5_1, 'c': [i for i in range(14)], 's': fs}
         # train_data = {'x': X_train_add_2, 'y': y_train_add_2, 'c': [i for i in range(14)], 's': fs}
-        train_data = {'x': X_train, 'y': y_train, 'c': [i for i in range(14)], 's': fs}
-        test_data = {'x': X_test, 'y': y_test, 'c': [i for i in range(14)], 's': fs}
+        # train_data = {'x': X_train_5_1, 'y': y_train_5_1, 'c': [i for i in range(14)], 's': fs}
+        test_data = {'x': X_test_5_1, 'y': y_test_5_1, 'c': [i for i in range(14)], 's': fs}
         # test_data = {'x': X_test_new, 'y': y_test_new, 'c': [i for i in range(14)], 's': fs}
         #(n_chan, 1000, n_trials)
         return train_data, test_data
